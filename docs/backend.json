@@ -1,0 +1,321 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Focus Flow application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The user's username."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "createdAt"
+      ]
+    },
+    "StudySession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudySession",
+      "type": "object",
+      "description": "Represents a single study session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudySession entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N StudySession)"
+        },
+        "subjectId": {
+          "type": "string",
+          "description": "Reference to Subject. (Relationship: Subject 1:N StudySession)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Timestamp indicating when the study session started.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Timestamp indicating when the study session ended.",
+          "format": "date-time"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration of the study session in minutes."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or comments about the study session."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "subjectId",
+        "startTime",
+        "endTime",
+        "duration"
+      ]
+    },
+    "Subject": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subject",
+      "type": "object",
+      "description": "Represents a subject or course of study.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Subject entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Subject)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the subject (e.g., Math, Science, History)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the subject."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name"
+      ]
+    },
+    "Achievement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Achievement",
+      "type": "object",
+      "description": "Represents an achievement or badge that a user can earn.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Achievement entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the achievement."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the achievement."
+        },
+        "criteria": {
+          "type": "string",
+          "description": "Criteria for earning the achievement."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image representing the achievement.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "criteria",
+        "imageUrl"
+      ]
+    },
+    "UserAchievement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserAchievement",
+      "type": "object",
+      "description": "Represents the association between a user and an achievement they have earned.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserAchievement entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N UserAchievement)"
+        },
+        "achievementId": {
+          "type": "string",
+          "description": "Reference to Achievement. (Relationship: Achievement 1:N UserAchievement)"
+        },
+        "awardedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the achievement was awarded to the user.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "achievementId",
+        "awardedAt"
+      ]
+    },
+    "Flower": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Flower",
+      "type": "object",
+      "description": "Represents a flower in the user's garden, tracking its growth and status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Flower entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Flower)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of flower (e.g., rose, sunflower, tulip)."
+        },
+        "level": {
+          "type": "number",
+          "description": "The current growth level of the flower."
+        },
+        "plantedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the flower was planted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "level",
+        "plantedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile data. The 'userId' parameter must match the authenticated user's UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user.  This MUST match the Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/subjects/{subjectId}",
+        "definition": {
+          "entityName": "Subject",
+          "schema": {
+            "$ref": "#/backend/entities/Subject"
+          },
+          "description": "Stores subjects created by the user. The 'userId' parameter must match the authenticated user's UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user. This MUST match the Firebase Authentication UID."
+            },
+            {
+              "name": "subjectId",
+              "description": "The unique identifier of the subject."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/studySessions/{studySessionId}",
+        "definition": {
+          "entityName": "StudySession",
+          "schema": {
+            "$ref": "#/backend/entities/StudySession"
+          },
+          "description": "Stores study sessions for a given subject. The 'userId' parameter must match the authenticated user's UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user. This MUST match the Firebase Authentication UID."
+            },
+            {
+              "name": "studySessionId",
+              "description": "The unique identifier of the study session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/flowers/{flowerId}",
+        "definition": {
+          "entityName": "Flower",
+          "schema": {
+            "$ref": "#/backend/entities/Flower"
+          },
+          "description": "Stores the flower data for a user's garden. The 'userId' parameter must match the authenticated user's UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user. This MUST match the Firebase Authentication UID."
+            },
+            {
+              "name": "flowerId",
+              "description": "The unique identifier of the flower."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/userAchievements/{userAchievementId}",
+        "definition": {
+          "entityName": "UserAchievement",
+          "schema": {
+            "$ref": "#/backend/entities/UserAchievement"
+          },
+          "description": "Stores the achievements earned by a user. The 'userId' parameter must match the authenticated user's UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user. This MUST match the Firebase Authentication UID."
+            },
+            {
+              "name": "userAchievementId",
+              "description": "The unique identifier of the user achievement."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to prioritize authorization independence, clarity, and scalability for the Focus Flow application.  It leverages path-based ownership for user-specific data and avoids hierarchical authorization dependencies (`get()` calls in security rules). This ensures atomic operations and simplifies debugging.  The structure also enables secure list operations (QAPs) through structural segregation and consistent access modeling.\n\n**Authorization Independence:**\n*   User-owned data (Subjects, StudySessions, Flowers, UserAchievements) is stored under the `/users/{userId}` path, ensuring clear ownership and simplifying security rules based on `request.auth.uid`.\n*   No `get()` calls are needed to validate the owner.\n\n**Structural Segregation:**\n*   All documents within a collection share the same security requirements. For instance, study sessions are private to the user and stored under `/users/{userId}/studySessions/{studySessionId}`.\n\n**Access Modeling:**\n*   Path-based ownership is consistently used for user-owned data, simplifying security rules. For instance, only the authenticated user with the matching `userId` can access data under `/users/{userId}`.\n\n**QAPs (Rules are not Filters):**\n*   The path-based ownership (`/users/{userId}/...`) enables secure `list` operations. Rules can easily check if `request.auth.uid == userId` to allow listing of all documents in the subcollections.\n\n**Invariants:**\n*   The structure supports the integrity of ownership, timestamps, and denormalized data by enforcing strict security rules that validate the `userId` field and ensure timestamps are properly set."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "sunflower",
+      "description": "A vibrant yellow sunflower in a field under a blue sky.",
+      "imageUrl": "https://images.unsplash.com/photo-1596789339282-D1c49e8b1b2b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxzdW5mbG93ZXJ8ZW58MHx8fHx8MTc2NTk4NDIwN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sunflower field"
+    },
+    {
+      "id": "rose",
+      "description": "A beautiful, velvety red rose.",
+      "imageUrl": "https://images.unsplash.com/photo-1487035242901-d419a42d17af?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxyZWQlMjByb3NlfGVufDB8fHx8fDE3NjU5ODQxODN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "red rose"
+    },
+    {
+      "id": "tulip",
+      "description": "A patch of vibrant pink and yellow tulips.",
+      "imageUrl": "https://images.unsplash.com/flagged/photo-1552677915-2a3c871e7c4e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx0dWxpcCUyMGdhcmRlbnxlbnwwfHx8fDE3NjU5ODQxODJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "tulip garden"
+    },
+    {
+      "id": "daisy",
+      "description": "A cheerful white daisy with a yellow center.",
+      "imageUrl": "https://images.unsplash.com/photo-1614121603536-9e47f233213c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8ZGFpc3klMjBwYXRjaHxlbnwwfHx8fDE3NjU5ODQxODJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "daisy patch"
+    },
+    {
+      "id": "lavender",
+      "description": "A field of calming purple lavender.",
+      "imageUrl": "https://images.unsplash.com/photo-1547314145-83da72464b79?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bGF2ZW5kZXIlMjBmaWVsZHxlbnwwfHx8fDE3NjU5NDA0OTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "lavender field"
+    },
+    {
+      "id": "cherry-blossom",
+      "description": "Delicate pink cherry blossoms on a branch.",
+      "imageUrl": "https://images.unsplash.com/photo-1538943186303-104afadcbb16?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaGVycnklMjBibG9zc29tfGVufDB8fHx8fDE3NjU5ODQxODJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cherry blossom"
+    }
+  ]
+}

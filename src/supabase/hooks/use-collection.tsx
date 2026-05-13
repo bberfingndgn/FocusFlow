@@ -40,7 +40,8 @@ export function useCollection<T = any>(
     setError(null);
 
     // Build query
-    let query = supabase.from(tableName).select('*');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = supabase.from(tableName as any).select('*');
 
     // Apply filters
     if (filters && filters.length > 0) {
@@ -52,20 +53,16 @@ export function useCollection<T = any>(
     }
 
     // Fetch initial data
-    query.then(({ data: initialData, error: fetchError }) => {
+    void Promise.resolve(query).then(({ data: initialData, error: fetchError }) => {
       if (fetchError) {
-        // Silently handle errors - don't show to user unless critical
-        // Only set error for debugging, but don't log to console
         setError(fetchError);
         setData(null);
         setIsLoading(false);
         return;
       }
-
       setData(initialData as T[]);
       setIsLoading(false);
     }).catch(() => {
-      // Silently handle promise rejections
       setData(null);
       setIsLoading(false);
     });

@@ -147,7 +147,7 @@ export function Flower({ progress, subject }: FlowerProps) {
 
         {/* Petals */}
         <g style={{ transformOrigin: '50% 45px', transform: `scale(${petalScale})`, transition: 'transform 1s ease-out'}} opacity={getOpacity(80)}>
-           <PetalComponent style={style} />
+           <PetalComponent style={style as typeof DefaultStyle} />
         </g>
         
         {/* Center Detail */}

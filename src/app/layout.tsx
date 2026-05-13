@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import Header from '@/components/layout/Header';
 import { Toaster } from '@/components/ui/toaster';
 import { SupabaseProvider } from '@/supabase';
+import { LanguageProvider } from '@/lib/i18n-context';
 
 export const metadata: Metadata = {
   title: 'Focus Flow',
@@ -28,9 +28,11 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased bg-background min-h-screen flex flex-col')} suppressHydrationWarning>
         <SupabaseProvider>
-          <Header />
-          <main className="flex-1 flex flex-col">{children}</main>
-          <Toaster />
+          <LanguageProvider>
+            <Header />
+            <main className="flex-1 flex flex-col">{children}</main>
+            <Toaster />
+          </LanguageProvider>
         </SupabaseProvider>
       </body>
     </html>

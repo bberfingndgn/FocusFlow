@@ -42,7 +42,7 @@ export const achievements: Achievement[] = [
     id: '5',
     title: 'Bloom Expert',
     description: 'Grow your first complete flower.',
-    milestoneHours: 4, 
+    milestoneHours: 4,
     unlocked: false,
     Icon: Mountain,
   },
@@ -50,7 +50,7 @@ export const achievements: Achievement[] = [
     id: 'companion-friend',
     title: 'Companion Friend',
     description: 'Click on your companion 10 times.',
-    milestoneHours: 0, // This is not time-based
+    milestoneHours: 0,
     unlocked: false,
     Icon: Heart,
     hidden: true,

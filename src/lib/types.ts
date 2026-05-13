@@ -28,6 +28,7 @@ export interface StudySession {
     start_time: string;
     end_time: string;
     duration: number; // in minutes
+    is_verified: boolean;
     created_at?: string;
     // Legacy fields for backward compatibility during migration
     userId?: string;
@@ -43,6 +44,10 @@ export interface UserProfile {
     created_at: string;
     total_study_time: number;
     companion_clicks: number;
+    date_of_birth?: string | null;
+    parent_email?: string | null;
+    otp_code?: string | null;
+    otp_expires_at?: string | null;
     // Legacy fields for backward compatibility during migration
     createdAt?: string;
     totalStudyTime?: number;

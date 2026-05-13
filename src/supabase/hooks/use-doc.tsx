@@ -40,32 +40,21 @@ export function useDoc<T = any>(
     setError(null);
 
     // Fetch initial data
-    supabase
-      .from(tableName)
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data: docData, error: fetchError }) => {
-        if (fetchError) {
-          // Document doesn't exist is not necessarily an error
-          if (fetchError.code === 'PGRST116') {
-            setData(null);
-          } else {
-            // Silently handle errors - don't show to user unless critical
-            setError(fetchError);
-            setData(null);
-          }
-          setIsLoading(false);
-          return;
-        }
-
-        setData(docData as T);
-        setIsLoading(false);
-      }).catch(() => {
-        // Silently handle promise rejections
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query = supabase.from(tableName as any).select('*').eq('id', id).single();
+    void Promise.resolve(query).then(({ data: docData, error: fetchError }) => {
+      if (fetchError) {
+        if (fetchError.code !== 'PGRST116') setError(fetchError);
         setData(null);
         setIsLoading(false);
-      });
+        return;
+      }
+      setData(docData as T);
+      setIsLoading(false);
+    }).catch(() => {
+      setData(null);
+      setIsLoading(false);
+    });
 
     // Subscribe to real-time changes
     const channel = supabase

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Flower } from '@/components/dashboard/Flower';
+import dynamic from 'next/dynamic';
 import { StudyTimer } from '@/components/dashboard/StudyTimer';
 import { UpcomingAchievements } from '@/components/dashboard/UpcomingAchievements';
 import { ParentPinModal } from '@/components/dashboard/ParentPinModal';
@@ -15,8 +15,10 @@ import { useUser, useDoc, useCollection, supabase } from '@/supabase';
 import { useRouter } from 'next/navigation';
 import type { StudySession, UserProfile } from '@/lib/types';
 import { LoaderCircle, Zap, AlertTriangle } from 'lucide-react';
-import Lottie, { type LottieRefCurrentProps } from 'lottie-react';
+import type { LottieRefCurrentProps } from 'lottie-react';
 import { useLanguage } from '@/lib/i18n-context';
+
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 
 type TimerStatus = 'running' | 'paused' | 'stopped';
 

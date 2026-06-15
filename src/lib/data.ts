@@ -1,4 +1,4 @@
-import { type Achievement, type GrownFlower } from '@/lib/types';
+import { type Achievement } from '@/lib/types';
 import { Timer, Zap, Sun, Award, Mountain, Heart, MousePointerClick, Star } from 'lucide-react';
 
 export const achievements: Achievement[] = [
@@ -66,29 +66,3 @@ export const achievements: Achievement[] = [
   },
 ];
 
-export const grownFlowers: GrownFlower[] = [
-  {
-    id: 'math-flower-1',
-    subject: 'Mathematics',
-    flowerTypeId: 'sunflower',
-    grownAt: new Date('2024-05-20'),
-  },
-  {
-    id: 'english-flower-1',
-    subject: 'English',
-    flowerTypeId: 'daisy',
-    grownAt: new Date('2024-05-22'),
-  },
-    {
-    id: 'science-flower-1',
-    subject: 'Science',
-    flowerTypeId: 'rose',
-    grownAt: new Date('2024-05-21'),
-  },
-  {
-    id: 'history-flower-1',
-    subject: 'Social Studies',
-    flowerTypeId: 'tulip',
-    grownAt: new Date('2024-05-23'),
-  },
-];

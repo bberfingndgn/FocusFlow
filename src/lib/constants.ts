@@ -18,6 +18,20 @@ export const SUBJECT_COLORS: Record<string, string> = {
   "English": "#A78BFA",
 };
 
+export const SUBJECT_FLOWER_LOTTIE: Record<string, string> = {
+  'Mathematics':    '/lottie/flower_sari.json',
+  'Social Studies': '/lottie/flower_pembe.json',
+  'Science':        '/lottie/flower_mor.json',
+  'English':        '/lottie/flower_mavi.json',
+};
+
+export const SUBJECT_LABELS: Record<string, string> = {
+  'Mathematics':    'Matematik',
+  'Social Studies': 'Sosyal Bilimler',
+  'Science':        'Fen Bilgisi',
+  'English':        'İngilizce',
+};
+
 // Badge / card Tailwind classes
 export const SUBJECT_BADGE_COLORS: Record<string, string> = {
   "Mathematics": "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700",

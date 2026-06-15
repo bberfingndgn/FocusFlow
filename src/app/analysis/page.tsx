@@ -1,20 +1,41 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useUser, useCollection, useDoc } from '@/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   LoaderCircle, Clock, Flame, Award, ShieldAlert,
-  BookOpen, Zap, TrendingUp, Trophy,
+  BookOpen, Zap, TrendingUp, Trophy, Sparkles,
 } from 'lucide-react';
 import type { StudySession, UserProfile } from '@/lib/types';
 import { cn, checkIsUnder15 } from '@/lib/utils';
-import { SUBJECT_OPTIONS, SUBJECT_COLORS as subjectColors, SUBJECT_EMOJIS } from '@/lib/constants';
+import { SUBJECT_OPTIONS, SUBJECT_COLORS as subjectColors, SUBJECT_FLOWER_LOTTIE, SUBJECT_LABELS } from '@/lib/constants';
 import { useLanguage } from '@/lib/i18n-context';
 import translations from '@/lib/translations';
 import { achievements } from '@/lib/data';
+import { generateSubjectMotivationAction } from '@/lib/actions';
+
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
+
+function LottieSubjectIcon({ subject }: { subject: string }) {
+  const [animData, setAnimData] = useState<object | null>(null);
+  const path = SUBJECT_FLOWER_LOTTIE[subject];
+
+  useEffect(() => {
+    if (!path) return;
+    fetch(path)
+      .then(r => r.json())
+      .then(setAnimData)
+      .catch(() => setAnimData(null));
+  }, [path]);
+
+  if (!animData) return <span className="w-8 h-8 inline-block" />;
+  return <Lottie animationData={animData} loop className="w-8 h-8 shrink-0" />;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -120,7 +141,6 @@ export default function AnalysisPage() {
     });
     return SUBJECT_OPTIONS.map(subj => ({
       subject: subj,
-      emoji: SUBJECT_EMOJIS[subj] || '📚',
       minutes: durations[subj] || 0,
       color: subjectColors[subj] || '#94A3B8',
     }));
@@ -193,6 +213,28 @@ export default function AnalysisPage() {
     const progress = Math.min(100, (totalHours / next.milestoneHours) * 100);
     return { type: 'next' as const, achievement: next, hoursLeft, progress };
   }, [stats.totalHours]);
+
+  // ── Subject motivation (AI) ──────────────────────────────────────────────────
+  const [motivations, setMotivations] = useState<Record<string, string>>({});
+  const [motivationsLoading, setMotivationsLoading] = useState(false);
+
+  useEffect(() => {
+    if (effectiveSessions.length === 0) return;
+    const neglected = subjectData.filter(s => s.minutes < 10).map(s => s.subject);
+    if (neglected.length === 0) return;
+    const totalMinutesMap: Record<string, number> = {};
+    subjectData.forEach(s => { totalMinutesMap[s.subject] = s.minutes; });
+    setMotivationsLoading(true);
+    generateSubjectMotivationAction({
+      neglectedSubjects: neglected,
+      totalMinutes: totalMinutesMap,
+      userName: userProfile?.username || 'Öğrenci',
+    })
+      .then(res => { if (res.motivations) setMotivations(res.motivations); })
+      .catch(() => {})
+      .finally(() => setMotivationsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveSessions.length]);
 
   // Typed shorthand for the new analysis translation keys
   const ana = translations[lang].analysis as any;
@@ -310,8 +352,8 @@ export default function AnalysisPage() {
                   <div key={item.subject} className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-1.5 min-w-0">
-                        <span>{item.emoji}</span>
-                        <span className="font-medium truncate">{item.subject}</span>
+                        <LottieSubjectIcon subject={item.subject} />
+                        <span className="font-medium truncate">{SUBJECT_LABELS[item.subject] || item.subject}</span>
                         {isFav && (
                           <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
                             {ana.subjectFavLabel}
@@ -333,6 +375,19 @@ export default function AnalysisPage() {
                         style={{ width: `${barWidth}%`, backgroundColor: item.color }}
                       />
                     </div>
+                    {/* AI motivasyon mesajı — sadece az çalışılan dersler için */}
+                    {item.minutes < 10 && (
+                      motivationsLoading ? (
+                        <Skeleton className="h-8 w-full rounded-lg" />
+                      ) : motivations[item.subject] ? (
+                        <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-800 dark:text-amber-300 leading-snug">
+                            {motivations[item.subject]}
+                          </p>
+                        </div>
+                      ) : null
+                    )}
                   </div>
                 );
               })}

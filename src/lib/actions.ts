@@ -2,6 +2,7 @@
 
 import { generateStudyPlan, type StudyPlanInput } from "@/ai/flows/personalized-study-plan";
 import { generateDailyStudyPlan, type DailyStudyPlanInput, type DailyStudyPlanOutput } from "@/ai/flows/daily-study-plan";
+import { generateSubjectMotivation, type SubjectMotivationInput } from "@/ai/flows/subject-motivation";
 import { z } from "zod";
 
 const StudyPlanFormSchema = z.object({
@@ -71,5 +72,24 @@ export async function generateDailyPlanAction(input: DailyStudyPlanInput): Promi
       return { plan: null, error: 'Gemini API quota exceeded. Please wait a moment and try again.' };
     }
     return { plan: null, error: `AI error: ${message}` };
+  }
+}
+
+// ---------- Subject Motivation Action ----------
+export interface SubjectMotivationResult {
+  motivations: Record<string, string> | null;
+  error: string | null;
+}
+
+export async function generateSubjectMotivationAction(
+  input: SubjectMotivationInput
+): Promise<SubjectMotivationResult> {
+  try {
+    const result = await generateSubjectMotivation(input);
+    return { motivations: result.motivations, error: null };
+  } catch (err: any) {
+    const message = err?.message ?? String(err);
+    console.error('[generateSubjectMotivationAction]', message);
+    return { motivations: null, error: message };
   }
 }

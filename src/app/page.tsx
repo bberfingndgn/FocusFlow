@@ -17,10 +17,9 @@ import type { StudySession, UserProfile } from '@/lib/types';
 import { LoaderCircle, Zap, AlertTriangle } from 'lucide-react';
 import type { LottieRefCurrentProps } from 'lottie-react';
 import { useLanguage } from '@/lib/i18n-context';
+import { useTimerContext } from '@/contexts/timer-context';
 
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
-
-type TimerStatus = 'running' | 'paused' | 'stopped';
 
 interface PendingSession {
   id: string;
@@ -33,34 +32,28 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { t } = useLanguage();
+  const timer = useTimerContext();
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(
-    'users',
-    user?.id || null,
-    !!user
+    'users', user?.id || null, !!user
   );
-
   const { data: studySessions, isLoading: isSessionsLoading } = useCollection<StudySession>(
     'study_sessions',
     user ? [{ column: 'user_id', value: user.id }] : undefined,
     !!user
   );
 
-  const [timerStatus, setTimerStatus] = useState<TimerStatus>('stopped');
-  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
-  const [sessionProgress, setSessionProgress] = useState(0);
   const [pendingSession, setPendingSession] = useState<PendingSession | null>(null);
   const [lottieData, setLottieData] = useState<any>(null);
   const lottieRef = useRef<LottieRefCurrentProps | null>(null);
   const [sessionMultiplier, setSessionMultiplier] = useState(1.0);
-  const [defaultTimerDuration, setDefaultTimerDuration] = useState<number | undefined>(undefined);
   const [activeIntensity, setActiveIntensity] = useState<string | null>(null);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetch('/lottie/growingflower.json')
-      .then(r => r.json())
-      .then(setLottieData)
-      .catch(() => {});
+    fetch('/lottie/growingflower.json').then(r => r.json()).then(setLottieData).catch(() => {});
   }, []);
 
   // Read active plan passed from study-plan page via localStorage
@@ -69,34 +62,29 @@ export default function Home() {
     if (!stored) return;
     try {
       const plan = JSON.parse(stored);
-      if (plan.subject) setSelectedSubject(plan.subject);
-      if (plan.duration) setDefaultTimerDuration(plan.duration);
+      if (plan.subject) timer.setSubject(plan.subject);
+      if (plan.duration) timer.setDuration(plan.duration);
       if (plan.multiplier) setSessionMultiplier(plan.multiplier);
-      if (plan.intensity) {
-        setActiveIntensity(plan.intensity as string);
-      }
+      if (plan.intensity) setActiveIntensity(plan.intensity as string);
       localStorage.removeItem('focusflow-active-plan');
     } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync Lottie frame with timer progress
   useEffect(() => {
     if (!lottieRef.current || !lottieData) return;
     const totalFrames = ((lottieData.op as number) || 100) - ((lottieData.ip as number) || 0);
-    if (timerStatus === 'stopped') {
+    if (timer.status === 'stopped') {
       lottieRef.current.goToAndStop(0, true);
       return;
     }
-    const targetFrame = Math.floor((sessionProgress / 100) * totalFrames);
+    const targetFrame = Math.floor((timer.sessionProgress / 100) * totalFrames);
     lottieRef.current.goToAndStop(Math.min(targetFrame, totalFrames - 1), true);
-  }, [sessionProgress, timerStatus, lottieData]);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const { toast } = useToast();
+  }, [timer.sessionProgress, timer.status, lottieData]);
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
+    if (!isUserLoading && !user) router.push('/login');
   }, [user, isUserLoading, router]);
 
   const totalStudyTime = userProfile?.total_study_time ?? 0;
@@ -106,10 +94,7 @@ export default function Home() {
     const achievement = achievements.find(a => a.id === achievementId);
     if (achievement && !achievement.unlocked) {
       achievement.unlocked = true;
-      toast({
-        title: "Achievement Unlocked! 🏆",
-        description: `You've earned the "${achievement.title}" badge!`,
-      });
+      toast({ title: "Achievement Unlocked! 🏆", description: `You've earned the "${achievement.title}" badge!` });
     }
   }, [toast]);
 
@@ -117,10 +102,7 @@ export default function Home() {
     const oldFlowers = Math.floor(totalStudyTime / SECONDS_TO_GROW_FLOWER);
     const newFlowers = Math.floor(newTotalStudyTime / SECONDS_TO_GROW_FLOWER);
     if (newFlowers > oldFlowers) {
-      toast({
-        title: "New Flower Grown! 🌸",
-        description: "You've completed a full growth cycle. Check your garden!",
-      });
+      toast({ title: "New Flower Grown! 🌸", description: "You've completed a full growth cycle. Check your garden!" });
     }
     achievements.forEach(achievement => {
       if (!achievement.unlocked && newTotalStudyTime >= achievement.milestoneHours * 3600) {
@@ -132,15 +114,12 @@ export default function Home() {
 
   const handleSessionComplete = useCallback(async (sessionDuration: number, subject: string) => {
     if (!user) return;
-
     const now = new Date();
     const startTime = new Date(now.getTime() - sessionDuration * 1000);
     const durationMinutes = Math.round(sessionDuration / 60);
     const under15 = checkIsUnder15(userProfile?.date_of_birth);
-    // Apply intensity multiplier to effective study time for flower growth
     const effectiveDuration = Math.round(sessionDuration * sessionMultiplier);
 
-    // Insert session — auto-verified for 15+, pending for under-15
     const { data: sessionData, error: sessionError } = await supabase
       .from('study_sessions')
       .insert({
@@ -157,71 +136,53 @@ export default function Home() {
     if (sessionError) return;
 
     if (!under15) {
-      // 15+: update total study time immediately
       const newTotalStudyTime = totalStudyTime + effectiveDuration;
-      await supabase
-        .from('users')
-        .update({ total_study_time: newTotalStudyTime })
-        .eq('id', user.id);
+      await supabase.from('users').update({ total_study_time: newTotalStudyTime }).eq('id', user.id);
       handleFlowerAndAchievements(newTotalStudyTime);
     } else if (!userProfile?.parent_email) {
-      // Under-15 but no parent email set — auto-verify gracefully
       const newTotalStudyTime = totalStudyTime + effectiveDuration;
       await supabase.from('study_sessions').update({ is_verified: true }).eq('id', sessionData.id);
       await supabase.from('users').update({ total_study_time: newTotalStudyTime }).eq('id', user.id);
       handleFlowerAndAchievements(newTotalStudyTime);
-      toast({
-        title: "Session Complete! 🌸",
-        description: "Add a parent email in your profile to enable parental control.",
-      });
+      toast({ title: "Session Complete! 🌸", description: "Add a parent email in your profile to enable parental control." });
     } else {
-      // Under-15 with parent email: generate OTP and send email
       const otp = generateOtp();
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 dakika
-
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
       await supabase.from('users').update({ otp_code: otp, otp_expires_at: expiresAt }).eq('id', user.id);
-
       setPendingSession({ id: sessionData.id, duration: sessionDuration, subject, durationMinutes });
       setShowPinModal(true);
       setIsSendingOtp(true);
-
       await sendParentOtpEmail({
         parentEmail: userProfile.parent_email,
         studentName: userProfile.username || user.email || 'Your child',
-        subject,
-        durationMinutes,
-        otpCode: otp,
+        subject, durationMinutes, otpCode: otp,
       });
-
       setIsSendingOtp(false);
-      toast({
-        title: "Session Complete! 🌱",
-        description: `Verification code sent to ${userProfile.parent_email}`,
-      });
+      toast({ title: "Session Complete! 🌱", description: `Verification code sent to ${userProfile.parent_email}` });
     }
-
-    setSessionProgress(0);
   }, [totalStudyTime, user, userProfile, toast, handleFlowerAndAchievements, sessionMultiplier]);
+
+  // Watch context for session completion (fires when timer reaches 0 on any page)
+  useEffect(() => {
+    if (!timer.sessionCompleted) return;
+    handleSessionComplete(timer.sessionCompleted.durationSeconds, timer.sessionCompleted.subject);
+    timer.clearSessionCompleted();
+  }, [timer.sessionCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOtpVerify = useCallback(async (enteredCode: string): Promise<boolean> => {
     if (!user || !pendingSession || !userProfile) return false;
-
     const storedOtp = userProfile.otp_code;
     const expiresAt = userProfile.otp_expires_at ? new Date(userProfile.otp_expires_at) : null;
-
     if (!storedOtp || enteredCode !== storedOtp) return false;
     if (expiresAt && new Date() > expiresAt) {
       toast({ variant: 'destructive', title: 'Code expired', description: 'Please request a new code.' });
       return false;
     }
-
-    // Doğrulama başarılı
     await supabase.from('study_sessions').update({ is_verified: true }).eq('id', pendingSession.id);
     const newTotalStudyTime = totalStudyTime + pendingSession.duration;
     await supabase.from('users')
       .update({ total_study_time: newTotalStudyTime, otp_code: null, otp_expires_at: null })
       .eq('id', user.id);
-
     handleFlowerAndAchievements(newTotalStudyTime);
     setShowPinModal(false);
     setPendingSession(null);
@@ -231,11 +192,9 @@ export default function Home() {
 
   const handleOtpResend = useCallback(async () => {
     if (!user || !userProfile?.parent_email || !pendingSession) return;
-
     const otp = generateOtp();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     await supabase.from('users').update({ otp_code: otp, otp_expires_at: expiresAt }).eq('id', user.id);
-
     setIsSendingOtp(true);
     await sendParentOtpEmail({
       parentEmail: userProfile.parent_email,
@@ -252,17 +211,6 @@ export default function Home() {
     setPendingSession(null);
   }, []);
 
-  const handleStatusChange = (status: TimerStatus) => {
-    setTimerStatus(status);
-    if (status === 'stopped') {
-      setSessionProgress(0);
-    }
-  };
-
-  const handleProgressChange = (progress: number) => {
-    setSessionProgress(progress);
-  };
-
   if (isUserLoading || isProfileLoading || isSessionsLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -273,13 +221,12 @@ export default function Home() {
 
   if (!user) return null;
 
-  const flowerProgress = timerStatus === 'running' || timerStatus === 'paused'
-    ? sessionProgress
+  const flowerProgress = timer.status === 'running' || timer.status === 'paused'
+    ? timer.sessionProgress
     : (totalStudyTime % SECONDS_TO_GROW_FLOWER) / SECONDS_TO_GROW_FLOWER * 100;
 
   return (
     <div className="flex-1 container mx-auto p-4 md:p-8">
-      {/* Ebeveyn OTP Doğrulama Modal */}
       {pendingSession && userProfile?.parent_email && (
         <ParentPinModal
           isOpen={showPinModal}
@@ -312,28 +259,23 @@ export default function Home() {
             )}
           </div>
           <p className="mt-2 text-sm font-medium text-muted-foreground tracking-wide">
-            {timerStatus === 'running' ? t('dashboard.growing') : timerStatus === 'paused' ? t('dashboard.paused') : t('dashboard.readyToGrow')}
+            {timer.status === 'running'
+              ? t('dashboard.growing')
+              : timer.status === 'paused'
+              ? t('dashboard.paused')
+              : t('dashboard.readyToGrow')}
           </p>
         </div>
 
         {/* Orta kolon — timer */}
         <div className="lg:col-span-1 flex flex-col items-center justify-center gap-4 order-1 lg:order-2">
-          {/* Active intensity badge */}
           {activeIntensity && sessionMultiplier > 1 && (
             <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-xs font-semibold text-primary shadow-sm">
               <Zap className="w-3.5 h-3.5" />
               {{ light: '☀️', normal: '⚡', hard: '🔥' }[activeIntensity]} {t(`readyPlanner.templates.${activeIntensity}.label`)} {t('readyPlanner.modSuffix')} · {sessionMultiplier}x {t('readyPlanner.multiplierSuffix')}
             </div>
           )}
-          <StudyTimer
-            onSessionComplete={handleSessionComplete}
-            onStatusChange={handleStatusChange}
-            onProgressChange={handleProgressChange}
-            subject={selectedSubject}
-            onSubjectChange={setSelectedSubject}
-            defaultDuration={defaultTimerDuration}
-          />
-          {/* Reminder */}
+          <StudyTimer />
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 max-w-sm w-full">
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700 dark:text-amber-400 leading-snug">
@@ -347,7 +289,6 @@ export default function Home() {
           <UpcomingAchievements currentStudyTime={totalStudyTime} />
         </div>
       </div>
-
     </div>
   );
 }

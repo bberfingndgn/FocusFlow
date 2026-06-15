@@ -8,9 +8,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Disable development overlay to hide hydration warnings from browser extensions
-  devIndicators: {
-    buildActivity: false,
+  devIndicators: {},
+  turbopack: {
+    root: __dirname,
   },
   // Suppress hydration warnings in development
   reactStrictMode: false,

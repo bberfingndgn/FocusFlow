@@ -19,10 +19,10 @@ export const SUBJECT_COLORS: Record<string, string> = {
 };
 
 export const SUBJECT_FLOWER_LOTTIE: Record<string, string> = {
-  'Mathematics':    '/lottie/flower_sari.json',
-  'Social Studies': '/lottie/flower_pembe.json',
+  'Mathematics':    '/lottie/flower_mavi.json',
   'Science':        '/lottie/flower_mor.json',
-  'English':        '/lottie/flower_mavi.json',
+  'Social Studies': '/lottie/flower_pembe.json',
+  'English':        '/lottie/flower_sari.json',
 };
 
 export const SUBJECT_LABELS: Record<string, string> = {

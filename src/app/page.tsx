@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { StudyTimer } from '@/components/dashboard/StudyTimer';
 import { UpcomingAchievements } from '@/components/dashboard/UpcomingAchievements';
 import { ParentPinModal } from '@/components/dashboard/ParentPinModal';
-import { SECONDS_TO_GROW_FLOWER } from '@/lib/constants';
+import { SECONDS_TO_GROW_FLOWER, SUBJECT_FLOWER_LOTTIE } from '@/lib/constants';
 import { checkIsUnder15 } from '@/lib/utils';
 import { sendParentOtpEmail, generateOtp } from '@/lib/emailjs';
 import { useToast } from '@/hooks/use-toast';
@@ -53,8 +53,10 @@ export default function Home() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetch('/lottie/growingflower.json').then(r => r.json()).then(setLottieData).catch(() => {});
-  }, []);
+    const path = SUBJECT_FLOWER_LOTTIE[timer.subject] ?? '/lottie/flower_mavi.json';
+    setLottieData(null);
+    fetch(path).then(r => r.json()).then(setLottieData).catch(() => {});
+  }, [timer.subject]);
 
   // Read active plan passed from study-plan page via localStorage
   useEffect(() => {

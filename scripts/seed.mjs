@@ -21,30 +21,33 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECONDS_TO_GROW_FLOWER = 14400 sn = 240 dk
+// SECONDS_TO_GROW_FLOWER = 14400 sn = 240 dk (4 saat)
 //
-// Her kullanıcı için çiçek eşikleri (kümülatif dakika):
-//   1. çiçek →  240 dk
-//   2. çiçek →  480 dk
-//   3. çiçek →  720 dk  ... vs.
-//
-// Seanslar tüm zaman dilimleri boyunca yayıldı:
-//   - 3 ay öncesinden bu haftaya kadar her ~4 günde bir seans
-//   - Geçen haftada 2 seans, bu hafta (bugün dahil) 2-4 seans
-//   - Bugünün seansları garden "Day" görünümünde çiçek üretir
-//
-// Berfin  → 24 seans × 75 dk = 1800 dk = 30 saat → 7 çiçek
-//            Çiçek zamanları: ay3(×4), ay2(×1), geçen hafta(×1), bugün(×1)
+// Berfin → 91 gün × 4 ders × 75 dk = 27300 dk = 455 saat → ~113 çiçek
+//   Her gün: Matematik(08:00) + Fen(11:00) + Sosyal(14:00) + İngilizce(17:00)
+//   300 dk/gün / 240 dk/çiçek ≈ 1.25 çiçek/gün
+//   Çiçekler tüm günlerde, haftalarda ve aylarda görünür.
 //
 // Elif    → 16 seans × 75 dk = 1200 dk = 20 saat → 5 çiçek
-//            Çiçek zamanları: ay3(×1), ay2(×2), geçen hafta(×1), bugün(×1)
-//
 // Sena    → 12 seans × 60 dk =  720 dk = 12 saat → 3 çiçek
-//            Çiçek zamanları: ay2(×1), ay1(×1), bugün(×1)
-//
 // Öykü   →  5 seans (3×60 + 2×90) = 360 dk =  6 saat → 1 çiçek
-//            Çiçek zamanları: bugün(×1)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Berfin için 91 gün × 4 ders seans listesini programatik oluştur
+const SUBJ_CYCLE = ['Mathematics', 'Science', 'Social Studies', 'English'];
+const HOUR_CYCLE = [8, 11, 14, 17];
+
+const berfinSessions = [];
+for (let daysAgo = 90; daysAgo >= 0; daysAgo--) {
+  for (let i = 0; i < SUBJ_CYCLE.length; i++) {
+    berfinSessions.push({
+      subject: SUBJ_CYCLE[i],
+      daysAgo,
+      hour: HOUR_CYCLE[i],
+      duration: 75,
+    });
+  }
+}
 
 const USERS = [
   {
@@ -52,48 +55,7 @@ const USERS = [
     password: 'Test1234!',
     username: 'Berfin Gündoğan',
     date_of_birth: '2003-07-12',
-    //
-    // Kümülatif izleme (her 75 dk = 4500 sn):
-    //  seans 1-3  → 225 dk      → 0 çiçek
-    //  seans 4    → 300 dk      → Çiçek 1 (eşik 240 dk, daysAgo 76)   ← ay3
-    //  seans 7    → 525 dk      → Çiçek 2 (eşik 480 dk, daysAgo 64)   ← ay3
-    //  seans 10   → 750 dk      → Çiçek 3 (eşik 720 dk, daysAgo 52)   ← ay2 (yakın)
-    //  seans 13   → 975 dk      → Çiçek 4 (eşik 960 dk, daysAgo 40)   ← ay2
-    //  seans 16   → 1200 dk     → Çiçek 5 (eşik 1200 dk, daysAgo 28)  ← ay1
-    //  seans 20   → 1500 dk     → Çiçek 6 (eşik 1440 dk, daysAgo 6)   ← GEÇEN HAFTA
-    //  seans 23   → 1725 dk     → Çiçek 7 (eşik 1680 dk, daysAgo 0)   ← BUGÜN
-    //
-    sessions: [
-      // ── Ay 3 (88-44 gün önce) — her ~4 günde bir ───────────────────────
-      { subject: 'Mathematics',    daysAgo: 88, hour:  9, duration: 75 },
-      { subject: 'Science',        daysAgo: 84, hour: 14, duration: 75 },
-      { subject: 'English',        daysAgo: 80, hour: 20, duration: 75 },
-      { subject: 'Social Studies', daysAgo: 76, hour:  9, duration: 75 }, // ← Çiçek 1
-      { subject: 'Mathematics',    daysAgo: 72, hour: 15, duration: 75 },
-      { subject: 'Science',        daysAgo: 68, hour:  8, duration: 75 },
-      { subject: 'English',        daysAgo: 64, hour: 19, duration: 75 }, // ← Çiçek 2
-      { subject: 'Social Studies', daysAgo: 60, hour: 10, duration: 75 },
-      { subject: 'Mathematics',    daysAgo: 56, hour: 14, duration: 75 },
-      { subject: 'Science',        daysAgo: 52, hour: 20, duration: 75 }, // ← Çiçek 3
-      { subject: 'English',        daysAgo: 48, hour:  9, duration: 75 },
-      { subject: 'Social Studies', daysAgo: 44, hour: 15, duration: 75 },
-      // ── Ay 2 (43-20 gün önce) ───────────────────────────────────────────
-      { subject: 'Mathematics',    daysAgo: 40, hour:  8, duration: 75 }, // ← Çiçek 4
-      { subject: 'Science',        daysAgo: 36, hour: 19, duration: 75 },
-      { subject: 'English',        daysAgo: 32, hour: 10, duration: 75 },
-      { subject: 'Social Studies', daysAgo: 28, hour: 14, duration: 75 }, // ← Çiçek 5
-      { subject: 'Mathematics',    daysAgo: 24, hour: 20, duration: 75 },
-      { subject: 'Science',        daysAgo: 20, hour:  9, duration: 75 },
-      // ── Geçen hafta (9 ve 6 gün önce) ──────────────────────────────────
-      { subject: 'English',        daysAgo:  9, hour: 15, duration: 75 },
-      { subject: 'Social Studies', daysAgo:  6, hour: 10, duration: 75 }, // ← Çiçek 6
-      // ── Bu hafta (2 gün önce = Pazartesi) ───────────────────────────────
-      { subject: 'Mathematics',    daysAgo:  2, hour: 14, duration: 75 },
-      // ── BUGÜN (3 seans = 225 dk, Çiçek 7 Science seansında açılıyor) ───
-      { subject: 'Mathematics',    daysAgo:  0, hour:  9, duration: 75 },
-      { subject: 'Science',        daysAgo:  0, hour: 14, duration: 75 }, // ← Çiçek 7
-      { subject: 'English',        daysAgo:  0, hour: 19, duration: 75 },
-    ],
+    sessions: berfinSessions,
   },
 
   {
@@ -230,17 +192,8 @@ async function seedUser(userDef) {
 
   await admin.from('users').update({ total_study_time: totalSeconds }).eq('id', userId);
 
-  const byPeriod = { today: 0, thisWeek: 0, lastWeek: 0, older: 0 };
-  sessions.forEach(s => {
-    if (s.daysAgo === 0)       byPeriod.today++;
-    else if (s.daysAgo <= 3)   byPeriod.thisWeek++;
-    else if (s.daysAgo <= 10)  byPeriod.lastWeek++;
-    else                        byPeriod.older++;
-  });
-
   console.log(`   ✅  ${username} <${email}>`);
   console.log(`       ${sessions.length} seans · ${(totalMinutes / 60).toFixed(1)} saat · ${flowers} çiçek`);
-  console.log(`       Dağılım → 3+ ay: ${byPeriod.older} | geçen hafta: ${byPeriod.lastWeek} | bu hafta: ${byPeriod.thisWeek} | bugün: ${byPeriod.today}`);
 }
 
 async function main() {
@@ -256,10 +209,10 @@ async function main() {
   console.log('    Email : berfin@focusflow.app');
   console.log('    Şifre : Test1234!\n');
   console.log('📋  Garden görünümleri (Berfin):');
-  console.log('    Day   → Bugün 3 seans, 7. çiçek açılıyor');
-  console.log('    Week  → Pazartesi + bugün = 2 gün, 6. ve 7. çiçek');
-  console.log('    Month → Bu ay toplam 6 seans, 2 çiçek');
-  console.log('    Year  → Tüm 7 çiçek, 3 aya yayılmış\n');
+  console.log('    Day   → Her günde ~1-2 çiçek (91 gün boyunca)');
+  console.log('    Week  → Her haftada ~8-10 çiçek, tüm dersler');
+  console.log('    Month → Her ayda ~35-40 çiçek, tüm dersler');
+  console.log('    Year  → ~113 çiçek, Nisan-Haziran 2026\n');
 }
 
 main().catch(err => { console.error('\n❌', err); process.exit(1); });

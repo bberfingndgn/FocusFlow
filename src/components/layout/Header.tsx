@@ -44,7 +44,7 @@ export default function Header() {
         </Link>
 
         {user && (
-          <nav className="flex items-center gap-2 text-sm flex-1">
+          <nav className="hidden md:flex items-center gap-2 text-sm flex-1">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
                 <Button

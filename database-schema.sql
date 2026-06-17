@@ -1,102 +1,114 @@
--- Supabase Database Schema
--- Copy and paste this entire file into Supabase SQL Editor and run it
+-- ============================================================
+-- FocusFlow - Supabase Database Schema (tam versiyon)
+-- Supabase Dashboard > SQL Editor'da bir kez çalıştır
+-- ============================================================
 
--- Users table (replaces Firestore /users/{userId} documents)
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username TEXT,
-  email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  total_study_time INTEGER DEFAULT 0, -- in seconds
-  companion_clicks INTEGER DEFAULT 0
+create extension if not exists "uuid-ossp";
+
+-- ============================================================
+-- USERS tablosu
+-- ============================================================
+create table if not exists public.users (
+  id               uuid references auth.users(id) on delete cascade primary key,
+  username         text,
+  email            text,
+  created_at       timestamptz default now(),
+  total_study_time bigint  default 0,
+  companion_clicks integer default 0,
+  date_of_birth    date,
+  parent_email     text,
+  otp_code         text,
+  otp_expires_at   timestamptz
 );
 
--- Study Sessions table (replaces Firestore /users/{userId}/studySessions subcollection)
-CREATE TABLE IF NOT EXISTS study_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  subject_id TEXT NOT NULL,
-  start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-  end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-  duration INTEGER NOT NULL, -- in minutes
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ============================================================
+-- STUDY_SESSIONS tablosu
+-- ============================================================
+create table if not exists public.study_sessions (
+  id          uuid        default uuid_generate_v4() primary key,
+  user_id     uuid        references public.users(id) on delete cascade not null,
+  subject_id  text        not null,
+  start_time  timestamptz not null,
+  end_time    timestamptz not null,
+  duration    integer     not null,  -- dakika cinsinden
+  is_verified boolean     not null default false,
+  created_at  timestamptz default now()
 );
 
--- Subjects table (if needed)
-CREATE TABLE IF NOT EXISTS subjects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================
+-- ROW LEVEL SECURITY
+-- ============================================================
+alter table public.users          enable row level security;
+alter table public.study_sessions enable row level security;
 
--- Flowers table (replaces Firestore /users/{userId}/flowers subcollection)
-CREATE TABLE IF NOT EXISTS flowers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  subject TEXT NOT NULL,
-  flower_type_id TEXT NOT NULL,
-  grown_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+drop policy if exists "users_select_own"    on public.users;
+drop policy if exists "users_insert_own"    on public.users;
+drop policy if exists "users_update_own"    on public.users;
+drop policy if exists "sessions_select_own" on public.study_sessions;
+drop policy if exists "sessions_insert_own" on public.study_sessions;
+drop policy if exists "sessions_update_own" on public.study_sessions;
+drop policy if exists "sessions_delete_own" on public.study_sessions;
 
--- Enable Row Level Security (RLS)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE study_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE flowers ENABLE ROW LEVEL SECURITY;
+-- Users policies
+create policy "users_select_own" on public.users
+  for select using (auth.uid() = id);
 
--- Drop existing policies if they exist (for re-running this script)
-DROP POLICY IF EXISTS "Users can view own data" ON users;
-DROP POLICY IF EXISTS "Users can update own data" ON users;
-DROP POLICY IF EXISTS "Users can insert own data" ON users;
-DROP POLICY IF EXISTS "Users can view own study sessions" ON study_sessions;
-DROP POLICY IF EXISTS "Users can insert own study sessions" ON study_sessions;
-DROP POLICY IF EXISTS "Users can update own study sessions" ON study_sessions;
-DROP POLICY IF EXISTS "Users can delete own study sessions" ON study_sessions;
-DROP POLICY IF EXISTS "Users can view own subjects" ON subjects;
-DROP POLICY IF EXISTS "Users can insert own subjects" ON subjects;
-DROP POLICY IF EXISTS "Users can view own flowers" ON flowers;
-DROP POLICY IF EXISTS "Users can insert own flowers" ON flowers;
+create policy "users_insert_own" on public.users
+  for insert with check (auth.uid() = id);
 
--- RLS Policies for users table
-CREATE POLICY "Users can view own data" ON users
-  FOR SELECT USING (auth.uid() = id);
+create policy "users_update_own" on public.users
+  for update using (auth.uid() = id);
 
-CREATE POLICY "Users can update own data" ON users
-  FOR UPDATE USING (auth.uid() = id);
+-- Study sessions policies
+create policy "sessions_select_own" on public.study_sessions
+  for select using (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own data" ON users
-  FOR INSERT WITH CHECK (auth.uid() = id);
+create policy "sessions_insert_own" on public.study_sessions
+  for insert with check (auth.uid() = user_id);
 
--- RLS Policies for study_sessions table
-CREATE POLICY "Users can view own study sessions" ON study_sessions
-  FOR SELECT USING (auth.uid() = user_id);
+create policy "sessions_update_own" on public.study_sessions
+  for update using (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own study sessions" ON study_sessions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+create policy "sessions_delete_own" on public.study_sessions
+  for delete using (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own study sessions" ON study_sessions
-  FOR UPDATE USING (auth.uid() = user_id);
+-- ============================================================
+-- OTOMATİK KULLANICI PROFİLİ TRIGGER
+-- Yeni kullanıcı kayıt olunca users satırı otomatik oluşturulur
+-- ============================================================
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.users (id, username, email, total_study_time, companion_clicks)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'username',
+    new.email,
+    0,
+    0
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
 
-CREATE POLICY "Users can delete own study sessions" ON study_sessions
-  FOR DELETE USING (auth.uid() = user_id);
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
--- RLS Policies for subjects table
-CREATE POLICY "Users can view own subjects" ON subjects
-  FOR SELECT USING (auth.uid() = user_id);
+-- ============================================================
+-- Mevcut kullanıcılar için eksik sütunları ekle (migration)
+-- ============================================================
+alter table public.users
+  add column if not exists date_of_birth   date,
+  add column if not exists parent_email    text,
+  add column if not exists otp_code        text,
+  add column if not exists otp_expires_at  timestamptz;
 
-CREATE POLICY "Users can insert own subjects" ON subjects
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+alter table public.study_sessions
+  add column if not exists is_verified boolean not null default false;
 
--- RLS Policies for flowers table
-CREATE POLICY "Users can view own flowers" ON flowers
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own flowers" ON flowers
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_study_sessions_user_id ON study_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_study_sessions_subject_id ON study_sessions(subject_id);
-CREATE INDEX IF NOT EXISTS idx_flowers_user_id ON flowers(user_id);
-CREATE INDEX IF NOT EXISTS idx_subjects_user_id ON subjects(user_id);
+-- İndeksler
+create index if not exists idx_study_sessions_user_id    on public.study_sessions(user_id);
+create index if not exists idx_study_sessions_subject_id on public.study_sessions(subject_id);

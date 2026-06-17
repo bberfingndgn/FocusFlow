@@ -133,16 +133,45 @@ export default function Home() {
       .select('id')
       .single();
 
-    if (sessionError) return;
+    if (sessionError) {
+      toast({ variant: 'destructive', title: 'Session could not be saved', description: sessionError.message });
+      return;
+    }
 
     if (!under15) {
       const newTotalStudyTime = totalStudyTime + effectiveDuration;
-      await supabase.from('users').update({ total_study_time: newTotalStudyTime }).eq('id', user.id);
+      const { data: updated } = await supabase
+        .from('users')
+        .update({ total_study_time: newTotalStudyTime })
+        .eq('id', user.id)
+        .select('id');
+      if (!updated || updated.length === 0) {
+        await supabase.from('users').insert({
+          id: user.id,
+          email: user.email || null,
+          username: user.user_metadata?.username || null,
+          total_study_time: newTotalStudyTime,
+          companion_clicks: 0,
+        });
+      }
       handleFlowerAndAchievements(newTotalStudyTime);
     } else if (!userProfile?.parent_email) {
       const newTotalStudyTime = totalStudyTime + effectiveDuration;
       await supabase.from('study_sessions').update({ is_verified: true }).eq('id', sessionData.id);
-      await supabase.from('users').update({ total_study_time: newTotalStudyTime }).eq('id', user.id);
+      const { data: updated } = await supabase
+        .from('users')
+        .update({ total_study_time: newTotalStudyTime })
+        .eq('id', user.id)
+        .select('id');
+      if (!updated || updated.length === 0) {
+        await supabase.from('users').insert({
+          id: user.id,
+          email: user.email || null,
+          username: user.user_metadata?.username || null,
+          total_study_time: newTotalStudyTime,
+          companion_clicks: 0,
+        });
+      }
       handleFlowerAndAchievements(newTotalStudyTime);
       toast({ title: "Session Complete! 🌸", description: "Add a parent email in your profile to enable parental control." });
     } else {
@@ -180,9 +209,20 @@ export default function Home() {
     }
     await supabase.from('study_sessions').update({ is_verified: true }).eq('id', pendingSession.id);
     const newTotalStudyTime = totalStudyTime + pendingSession.duration;
-    await supabase.from('users')
+    const { data: updated } = await supabase
+      .from('users')
       .update({ total_study_time: newTotalStudyTime, otp_code: null, otp_expires_at: null })
-      .eq('id', user.id);
+      .eq('id', user.id)
+      .select('id');
+    if (!updated || updated.length === 0) {
+      await supabase.from('users').insert({
+        id: user.id,
+        email: user.email || null,
+        username: user.user_metadata?.username || null,
+        total_study_time: newTotalStudyTime,
+        companion_clicks: 0,
+      });
+    }
     handleFlowerAndAchievements(newTotalStudyTime);
     setShowPinModal(false);
     setPendingSession(null);

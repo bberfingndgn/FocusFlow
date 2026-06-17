@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import Header from '@/components/layout/Header';
+import BottomNav from '@/components/layout/BottomNav';
 import { Toaster } from '@/components/ui/toaster';
 import { SupabaseProvider } from '@/supabase';
 import { LanguageProvider } from '@/lib/i18n-context';
@@ -32,7 +33,8 @@ export default function RootLayout({
           <LanguageProvider>
             <TimerProvider>
               <Header />
-              <main className="flex-1 flex flex-col">{children}</main>
+              <main className="flex-1 flex flex-col pb-20 md:pb-0">{children}</main>
+              <BottomNav />
               <Toaster />
             </TimerProvider>
           </LanguageProvider>

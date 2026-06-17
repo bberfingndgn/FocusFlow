@@ -1,24 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { GrownFlowerCard } from '@/components/garden/GrownFlowerCard';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LoaderCircle, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
 import { useUser, useDoc, useCollection } from '@/supabase';
 import { useLanguage } from '@/lib/i18n-context';
-import {
-  SECONDS_TO_GROW_FLOWER,
-  SUBJECT_OPTIONS,
-  SUBJECT_FLOWER_LOTTIE,
-  SUBJECT_LABELS,
-  SUBJECT_BADGE_COLORS,
-} from '@/lib/constants';
-import { checkIsUnder15 } from '@/lib/utils';
+import { SECONDS_TO_GROW_FLOWER } from '@/lib/constants';
+import { checkIsUnder15, cn } from '@/lib/utils';
 import type { StudySession, UserProfile, GrownFlower } from '@/lib/types';
+import GardenIsometricView from '@/components/garden/GardenIsometricView';
 
-const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
+type Period = 'day' | 'week' | 'month' | 'year';
 
 const SUBJECT_FLOWER_TYPES: Record<string, string> = {
   'Mathematics':    'sunflower',
@@ -27,35 +19,34 @@ const SUBJECT_FLOWER_TYPES: Record<string, string> = {
   'English':        'daisy',
 };
 
-function SubjectFlower({ subject }: { subject: string }) {
-  const [animData, setAnimData] = useState<object | null>(null);
-  const path = SUBJECT_FLOWER_LOTTIE[subject];
-
-  useEffect(() => {
-    if (!path) return;
-    fetch(path)
-      .then(r => r.json())
-      .then(setAnimData)
-      .catch(() => setAnimData(null));
-  }, [path]);
-
-  if (!animData) {
-    return <div className="w-48 h-48 flex items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></div>;
+function checkInPeriod(d: Date, period: Period, c: Date): boolean {
+  switch (period) {
+    case 'day':
+      return d.toDateString() === c.toDateString();
+    case 'week': {
+      const start = new Date(c);
+      start.setDate(c.getDate() - c.getDay());
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return d >= start && d <= end;
+    }
+    case 'month':
+      return d.getMonth() === c.getMonth() && d.getFullYear() === c.getFullYear();
+    case 'year':
+      return d.getFullYear() === c.getFullYear();
   }
-
-  return (
-    <Lottie
-      animationData={animData}
-      loop
-      className="w-48 h-48"
-    />
-  );
 }
 
 export default function GardenPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+
+  const [period, setPeriod] = useState<Period>('day');
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [subject, setSubject] = useState<string>('all');
 
   useEffect(() => {
     if (!isUserLoading && !user) router.push('/login');
@@ -79,17 +70,6 @@ export default function GardenPage() {
     return studySessions.filter(s => s.is_verified === true);
   }, [studySessions, isUnder15]);
 
-  // Minutes per subject from real session data
-  const subjectMinutes = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const s of effectiveSessions) {
-      const subj = s.subject_id || (s as any).subjectId || 'Mathematics';
-      map[subj] = (map[subj] || 0) + (s.duration || 0);
-    }
-    return map;
-  }, [effectiveSessions]);
-
-  // Build grown flowers from accumulated session data
   const grownFlowers = useMemo((): GrownFlower[] => {
     if (!userProfile) return [];
     const totalStudyTime = userProfile.total_study_time || 0;
@@ -109,11 +89,9 @@ export default function GardenPage() {
     for (const session of sorted) {
       if (flowerIndex >= totalFlowers) break;
       let remaining = session.duration * 60;
-
       while (remaining > 0 && flowerIndex < totalFlowers) {
         const nextThreshold = (flowerIndex + 1) * SECONDS_TO_GROW_FLOWER;
         const toNext = nextThreshold - accumulatedSeconds;
-
         if (remaining >= toNext) {
           remaining -= toNext;
           accumulatedSeconds = nextThreshold;
@@ -145,8 +123,78 @@ export default function GardenPage() {
       }
     }
 
-    return flowers.reverse();
+    return flowers;
   }, [userProfile, effectiveSessions]);
+
+  const filteredFlowers = useMemo(
+    () => grownFlowers
+      .filter(f => checkInPeriod(new Date(f.grownAt), period, currentDate))
+      .filter(f => subject === 'all' || f.subject === subject),
+    [grownFlowers, period, currentDate, subject]
+  );
+
+  const filteredSessions = useMemo(
+    () => effectiveSessions
+      .filter(s => checkInPeriod(new Date(s.start_time || s.created_at || ''), period, currentDate))
+      .filter(s => subject === 'all' || s.subject_id === subject),
+    [effectiveSessions, period, currentDate, subject]
+  );
+
+  const periodHours = useMemo(() => {
+    const mins = filteredSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    return (mins / 60).toFixed(1);
+  }, [filteredSessions]);
+
+  function navigate(dir: 1 | -1) {
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      switch (period) {
+        case 'day':   d.setDate(d.getDate() + dir);         break;
+        case 'week':  d.setDate(d.getDate() + dir * 7);     break;
+        case 'month': d.setMonth(d.getMonth() + dir);       break;
+        case 'year':  d.setFullYear(d.getFullYear() + dir); break;
+      }
+      return d;
+    });
+  }
+
+  function getPeriodLabel(): string {
+    const locale = lang === 'tr' ? 'tr-TR' : 'en-US';
+    const today = new Date();
+    switch (period) {
+      case 'day': {
+        const isToday = currentDate.toDateString() === today.toDateString();
+        const label = currentDate.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+        return isToday ? `${label} (${t('garden.today')})` : label;
+      }
+      case 'week': {
+        const start = new Date(currentDate);
+        start.setDate(currentDate.getDate() - currentDate.getDay());
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return `${start.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'month':
+        return currentDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+      case 'year':
+        return currentDate.getFullYear().toString();
+    }
+  }
+
+  const PERIODS: { key: Period; label: string }[] = [
+    { key: 'day',   label: t('garden.day') },
+    { key: 'week',  label: t('garden.week') },
+    { key: 'month', label: t('garden.month') },
+    { key: 'year',  label: t('garden.year') },
+  ];
+
+  const SUBJECTS = [
+    { key: 'all',            label: t('garden.allSubjects'), emoji: '🌸' },
+    { key: 'Mathematics',    label: t('garden.math'),        emoji: '🔵' },
+    { key: 'Science',        label: t('garden.science'),     emoji: '🟣' },
+    { key: 'Social Studies', label: t('garden.social'),      emoji: '🩷' },
+    { key: 'English',        label: t('garden.english'),     emoji: '🟡' },
+  ];
 
   const isLoading = isUserLoading || isProfileLoading || (!!user && isSessionsLoading);
 
@@ -161,71 +209,92 @@ export default function GardenPage() {
   if (!user) return null;
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold font-headline text-primary">{t('garden.title')}</h1>
-        <p className="text-muted-foreground mt-2 text-lg">{t('garden.subtitle')}</p>
+    <div className="container mx-auto py-8 px-4 max-w-lg">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold font-headline text-primary">{t('garden.title')}</h1>
+        <p className="text-muted-foreground mt-1 text-sm">{t('garden.subtitle')}</p>
       </div>
 
-      <Tabs defaultValue="Mathematics" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-8 h-auto">
-          {SUBJECT_OPTIONS.map(subject => (
-            <TabsTrigger key={subject} value={subject} className="py-2 text-xs sm:text-sm">
-              {SUBJECT_LABELS[subject]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {SUBJECT_OPTIONS.map(subject => {
-          const minutes = subjectMinutes[subject] || 0;
-          const hours = Math.floor(minutes / 60);
-          const mins = minutes % 60;
-          const timeLabel = hours > 0
-            ? `${hours} sa ${mins} dk`
-            : `${mins} dk`;
-
-          const subjectFlowers = grownFlowers.filter(f => f.subject === subject);
-          const badgeColor = SUBJECT_BADGE_COLORS[subject] || '';
-
-          return (
-            <TabsContent key={subject} value={subject}>
-              {/* Flower + study time header */}
-              <div className="flex flex-col items-center gap-4 mb-8">
-                <SubjectFlower subject={subject} />
-
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium ${badgeColor}`}>
-                  <Clock className="w-4 h-4" />
-                  <span>Toplam çalışma: <strong>{timeLabel}</strong></span>
-                </div>
-              </div>
-
-              {/* Grown flowers for this subject */}
-              {subjectFlowers.length === 0 ? (
-                <div className="text-center py-12 bg-muted/50 rounded-2xl space-y-3">
-                  <p className="text-6xl">🌱</p>
-                  <p className="text-muted-foreground text-base font-medium">
-                    {SUBJECT_LABELS[subject]} için henüz çiçek yok
-                  </p>
-                  <p className="text-sm text-muted-foreground/70">
-                    Bu ders için çalışma seanslarını tamamla!
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-center text-sm text-muted-foreground mb-4">
-                    🌸 {subjectFlowers.length} çiçek büyüdü
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {subjectFlowers.map(flower => (
-                      <GrownFlowerCard key={flower.id} flower={flower} />
-                    ))}
-                  </div>
-                </>
+      {/* Period tabs */}
+      <div className="flex justify-center mb-3">
+        <div className="flex items-center rounded-full border border-border bg-muted p-0.5 text-sm font-semibold gap-0.5">
+          {PERIODS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => { setPeriod(key); setCurrentDate(new Date()); }}
+              className={cn(
+                'rounded-full px-3 py-1.5 transition-all',
+                period === key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
-            </TabsContent>
-          );
-        })}
-      </Tabs>
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Subject tabs */}
+      <div className="flex justify-center mb-4 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 min-w-max">
+          {SUBJECTS.map(({ key, label, emoji }) => (
+            <button
+              key={key}
+              onClick={() => setSubject(key)}
+              className={cn(
+                'flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap',
+                subject === key
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span>{emoji}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Date navigator */}
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="rounded-full p-1.5 hover:bg-muted transition-colors"
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+        </button>
+        <span
+          className="text-sm font-medium text-foreground min-w-[200px] text-center"
+          suppressHydrationWarning
+        >
+          {getPeriodLabel()}
+        </span>
+        <button
+          onClick={() => navigate(1)}
+          className="rounded-full p-1.5 hover:bg-muted transition-colors"
+          aria-label="Next"
+        >
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </button>
+      </div>
+
+      {/* Isometric garden */}
+      <GardenIsometricView flowers={filteredFlowers} />
+
+      {/* Stats */}
+      <div className="flex justify-center gap-12 mt-6">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-primary">{filteredFlowers.length}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('garden.flowersGrown')}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-primary">{periodHours}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('garden.hoursStudied')}</p>
+        </div>
+      </div>
     </div>
   );
 }
